@@ -69,8 +69,6 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
-
     const db = client.db('champyDB');
     const userCollection = db.collection('users');
 
@@ -99,10 +97,26 @@ async function run() {
       next();
     };
 
-    await client.db('admin').command({ ping: 1 });
-    console.log(
-      'Pinged your deployment. You successfully connected to MongoDB!'
-    );
+    //! User APIs
+
+    // register user into DB
+    app.post('/users', async (req, res) => {
+      const userInfo = req.body;
+
+      userInfo.role = 'user';
+      userInfo.createdAt = new Date();
+
+      const email = userInfo.email;
+      const userExist = await userCollection.findOne({ email });
+
+      if (userExist) {
+        return res.json({ message: 'user exists' });
+      }
+
+      const result = await userCollection.insertOne(userInfo);
+
+      res.json(result);
+    });
   } finally {
   }
 }
