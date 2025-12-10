@@ -71,6 +71,7 @@ async function run() {
   try {
     const db = client.db('champyDB');
     const userCollection = db.collection('users');
+    const contestCollection = db.collection('contests');
 
     // Verify Admin role
     const verifyAdmin = async (req, res, next) => {
@@ -114,6 +115,17 @@ async function run() {
       }
 
       const result = await userCollection.insertOne(userInfo);
+
+      res.json(result);
+    });
+
+    //! Contest APIs
+    // create contest
+    app.post('/contests', async (req, res) => {
+      const contestInfo = req.body;
+      contestInfo.createdAt = new Date();
+
+      const result = await contestCollection.insertOne(contestInfo);
 
       res.json(result);
     });
