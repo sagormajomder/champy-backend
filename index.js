@@ -99,6 +99,11 @@ async function run() {
     };
 
     //! User APIs
+    // get all users
+    app.get('/users', async (req, res) => {
+      const users = await userCollection.find().toArray();
+      res.json(users);
+    });
 
     // register user into DB
     app.post('/users', async (req, res) => {
