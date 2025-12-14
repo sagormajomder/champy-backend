@@ -170,6 +170,17 @@ async function run() {
 
       res.json(result);
     });
+
+    // delete specific contest
+    app.delete('/contests/:id', async (req, res) => {
+      const { id } = req.params;
+
+      const result = await contestCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.json(result);
+    });
   } finally {
   }
 }
