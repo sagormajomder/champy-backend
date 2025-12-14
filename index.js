@@ -105,6 +105,25 @@ async function run() {
       res.json(users);
     });
 
+    // change user Role
+    app.patch('/users/:id/role', async (req, res) => {
+      const { id } = req.params;
+      const userInfo = req.body;
+
+      const updateDoc = {
+        $set: {
+          role: userInfo.role,
+        },
+      };
+
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc
+      );
+
+      res.json(result);
+    });
+
     // register user into DB
     app.post('/users', async (req, res) => {
       const userInfo = req.body;
