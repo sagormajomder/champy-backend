@@ -120,6 +120,20 @@ async function run() {
     });
 
     //! Contest APIs
+    // get contest list created by specific creator
+    app.get('/contests', async (req, res) => {
+      const { email } = req.query;
+      const query = {};
+      if (email) {
+        query.creatorEmail = email;
+      }
+      const contests = await contestCollection.find(query).toArray();
+
+      res.json(contests);
+    });
+
+    // get specific contest
+
     // create contest
     app.post('/contests', async (req, res) => {
       const contestInfo = req.body;
