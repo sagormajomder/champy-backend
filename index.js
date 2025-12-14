@@ -1,7 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import admin from 'firebase-admin';
-import { MongoClient, ServerApiVersion } from 'mongodb';
+import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
 
 const decoded = Buffer.from(
   process.env.FIREBASE_SERVICE_KEY,
@@ -133,6 +133,16 @@ async function run() {
     });
 
     // get specific contest
+    app.get('/contests/:id', async (req, res) => {
+      const { id } = req.params;
+      console.log(id);
+
+      const contest = await contestCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      res.json(contest);
+    });
 
     // create contest
     app.post('/contests', async (req, res) => {
@@ -140,6 +150,23 @@ async function run() {
       contestInfo.createdAt = new Date();
 
       const result = await contestCollection.insertOne(contestInfo);
+
+      res.json(result);
+    });
+
+    // update contest
+    app.patch('/contests/:id', async (req, res) => {
+      const { id } = req.params;
+      const updatedInfo = req.body;
+
+      const updateDoc = {
+        $set: updatedInfo,
+      };
+
+      const result = await contestCollection.updateOne(
+        { _id: new ObjectId(id) },
+        updateDoc
+      );
 
       res.json(result);
     });
