@@ -144,12 +144,17 @@ async function run() {
     });
 
     //! Contest APIs
-    // get contest list created by specific creator
+    // get all contest list
+    // get contest list by specific user
+    // get contest list by status
     app.get('/contests', async (req, res) => {
-      const { email } = req.query;
+      const { email, status } = req.query;
       const query = {};
       if (email) {
         query.creatorEmail = email;
+      }
+      if (status) {
+        query.contestStatus = status;
       }
       const contests = await contestCollection.find(query).toArray();
 
@@ -195,7 +200,6 @@ async function run() {
       res.json(result);
     });
 
-    // delete specific contest
     app.delete('/contests/:id', async (req, res) => {
       const { id } = req.params;
 
