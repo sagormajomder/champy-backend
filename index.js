@@ -216,6 +216,23 @@ async function run() {
     });
 
     //! Payments APIs
+    // get participate payment info
+    app.get('/payments', async (req, res) => {
+      const { contestId, email } = req.query;
+      const query = {};
+      if (email) {
+        query.customer_email = email;
+      }
+      if (contestId) {
+        query.contestId = contestId;
+      }
+
+      console.log(query);
+
+      const paymentInfo = await paymentCollection.findOne(query);
+
+      res.json(paymentInfo);
+    });
     // verify payment
     app.get('/payment-success', async (req, res) => {
       const { session_id } = req.query;
