@@ -74,6 +74,8 @@ async function run() {
     const db = client.db('champyDB');
     const userCollection = db.collection('users');
     const contestCollection = db.collection('contests');
+    const paymentCollection = db.collection('payments');
+    const participateCollection = db.collection('participates');
 
     // Verify Admin role
     const verifyAdmin = async (req, res, next) => {
@@ -214,16 +216,76 @@ async function run() {
     });
 
     //! Payments APIs
+    // verify payment
+    app.get('/payment-success', async (req, res) => {
+      const { session_id } = req.query;
+
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+
+      // console.log(session);
+
+      const transactionId = session.payment_intent;
+
+      // Close guard if payment exist
+      const isPaymentExist = await paymentCollection.findOne({
+        transactionId,
+      });
+
+      // console.log(isPaymentExist);
+
+      if (isPaymentExist) {
+        return res.json({
+          message: 'already exists',
+          transactionId,
+          contestId,
+        });
+      }
+
+      if (session.payment_status === 'paid') {
+        const contestId = session.metadata.contestId;
+
+        const contestResult = await contestCollection.updateOne(
+          {
+            _id: new ObjectId(contestId),
+          },
+          { $inc: { participatedCount: 1 } }
+        );
+
+        const paymentData = {
+          amount: session.amount_total / 100,
+          currency: session.currency,
+          customer_email: session.customer_email,
+          contestId,
+          transactionId,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+        };
+
+        const paymentResult = await paymentCollection.insertOne(paymentData);
+
+        return res.json({
+          success: true,
+          modifyContest: contestResult,
+          paymentInfo: paymentResult,
+          transactionId,
+          contestId,
+        });
+      }
+
+      res.json({ success: false, contestId });
+    });
+
     // get payment cancelled contest
     app.get('/payment-cancelled', async (req, res) => {
       const { session_id } = req.query;
 
       const session = await stripe.checkout.sessions.retrieve(session_id);
 
-      console.log(session);
+      // console.log(session);
 
       res.json({ contestId: session.metadata.contestId });
     });
+
     // create payment session
     app.post('/create-checkout-session', async (req, res) => {
       const { contestId, contestName, contestPrice, participatorEmail } =
@@ -237,7 +299,7 @@ async function run() {
             price_data: {
               currency: 'bdt',
               product_data: {
-                name: `Please pay for ${contestName}`,
+                name: `Please pay fee for the contest named "${contestName}"`,
               },
               unit_amount: amount,
             },
