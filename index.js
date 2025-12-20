@@ -75,7 +75,7 @@ async function run() {
     const userCollection = db.collection('users');
     const contestCollection = db.collection('contests');
     const paymentCollection = db.collection('payments');
-    const participateCollection = db.collection('participates');
+    const submissionCollection = db.collection('submissions');
 
     // Verify Admin role
     const verifyAdmin = async (req, res, next) => {
@@ -227,7 +227,7 @@ async function run() {
         query.contestId = contestId;
       }
 
-      console.log(query);
+      // console.log(query);
 
       const paymentInfo = await paymentCollection.findOne(query);
 
@@ -334,6 +334,16 @@ async function run() {
       });
 
       res.json({ url: session.url });
+    });
+
+    //! Submission APIs
+    // add submission into db
+    app.post('/submissions', async (req, res) => {
+      const submissionInfo = req.body;
+
+      const result = await submissionCollection.insertOne(submissionInfo);
+
+      res.json(result);
     });
   } finally {
   }
