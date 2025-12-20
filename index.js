@@ -2,6 +2,8 @@ import cors from 'cors';
 import express from 'express';
 import admin from 'firebase-admin';
 import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
+import Stripe from 'stripe';
+const stripe = new Stripe(process.env.STRIPE_SECRET);
 
 const decoded = Buffer.from(
   process.env.FIREBASE_SERVICE_KEY,
@@ -164,7 +166,7 @@ async function run() {
     // get specific contest
     app.get('/contests/:id', async (req, res) => {
       const { id } = req.params;
-      console.log(id);
+      // console.log(id);
 
       const contest = await contestCollection.findOne({
         _id: new ObjectId(id),
@@ -200,6 +202,7 @@ async function run() {
       res.json(result);
     });
 
+    // Delete Contest
     app.delete('/contests/:id', async (req, res) => {
       const { id } = req.params;
 
@@ -208,6 +211,50 @@ async function run() {
       });
 
       res.json(result);
+    });
+
+    //! Payments APIs
+    // get payment cancelled contest
+    app.get('/payment-cancelled', async (req, res) => {
+      const { session_id } = req.query;
+
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+
+      console.log(session);
+
+      res.json({ contestId: session.metadata.contestId });
+    });
+    // create payment session
+    app.post('/create-checkout-session', async (req, res) => {
+      const { contestId, contestName, contestPrice, participatorEmail } =
+        req.body;
+
+      const amount = parseInt(contestPrice) * 100;
+
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'bdt',
+              product_data: {
+                name: `Please pay for ${contestName}`,
+              },
+              unit_amount: amount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        customer_email: participatorEmail,
+        metadata: {
+          contestId,
+          contestName,
+        },
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled?session_id={CHECKOUT_SESSION_ID}`,
+      });
+
+      res.json({ url: session.url });
     });
   } finally {
   }
