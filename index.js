@@ -337,6 +337,24 @@ async function run() {
     });
 
     //! Submission APIs
+    // get submission
+    app.get('/submissions', async (req, res) => {
+      const { contestId, email } = req.query;
+      const query = {};
+      if (email) {
+        query.participatorEmail = email;
+      }
+      if (contestId) {
+        query.contestId = contestId;
+      }
+
+      // console.log(query);
+
+      const submissionInfo = await submissionCollection.findOne(query);
+
+      res.json(submissionInfo);
+    });
+
     // add submission into db
     app.post('/submissions', async (req, res) => {
       const submissionInfo = req.body;
