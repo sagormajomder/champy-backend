@@ -195,7 +195,7 @@ async function run() {
 
     //! Contest APIs
     // get all contest list
-    // get contest list by specific user
+    // get contest list by specific creator
     // get contest list by status
     app.get('/contests', async (req, res) => {
       const { email, status } = req.query;
@@ -211,13 +211,30 @@ async function run() {
       res.json(contests);
     });
 
-    // get participate contest by paid status
+    // get winner participator contests
+    app.get('/contests/winner-participator', async (req, res) => {
+      const { email } = req.query;
+
+      const participates = await participateCollection
+        .find({ participatorEmail: email, winner: true })
+        .toArray();
+
+      const contestIds = participates.map(participate => participate.contestId);
+      const contests = await contestCollection
+        .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
+        .toArray();
+
+      return res.json(contests);
+    });
+
+    // get participator contests by paid status
     app.get('/contests/participate', async (req, res) => {
       const { paymentStatus, email } = req.query;
       const query = {};
       if (email) {
         query.customer_email = email;
       }
+
       if (paymentStatus) {
         query.paymentStatus = paymentStatus;
       }
@@ -289,16 +306,16 @@ async function run() {
       // update participate contestDeadline
       const contestDeadline = updatedInfo.contestDeadline;
       // console.log(contestDeadline);
-      // const participateResult = await participateCollection.updateMany(
-      //   { contestId: id },
-      //   {
-      //     $set: {
-      //       contestDeadline,
-      //     },
-      //   }
-      // );
+      const participateResult = await participateCollection.updateMany(
+        { contestId: id },
+        {
+          $set: {
+            contestDeadline,
+          },
+        }
+      );
 
-      // res.json(result);
+      res.json(result);
     });
 
     // Delete Contest
@@ -467,7 +484,7 @@ async function run() {
 
       const { winner } = req.query;
 
-      console.log(winner);
+      // console.log(winner);
 
       if (winner) {
         const winnerParticipator = await participateCollection.findOne({
@@ -475,7 +492,7 @@ async function run() {
           winner: !!winner,
         });
 
-        console.log(winnerParticipator);
+        // console.log(winnerParticipator);
 
         return res.json(winnerParticipator);
       }
