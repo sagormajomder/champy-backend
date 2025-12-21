@@ -75,7 +75,7 @@ async function run() {
     const userCollection = db.collection('users');
     const contestCollection = db.collection('contests');
     const paymentCollection = db.collection('payments');
-    const submissionCollection = db.collection('submissions');
+    const participateCollection = db.collection('participates');
 
     // Verify Admin role
     const verifyAdmin = async (req, res, next) => {
@@ -280,10 +280,22 @@ async function run() {
 
         const paymentResult = await paymentCollection.insertOne(paymentData);
 
+        const participateData = {
+          contestId,
+          participatorEmail: session.customer_email,
+          participatorName: session.metadata.participatorName,
+          createdAt: new Date(),
+        };
+
+        const participateResult = await participateCollection.insertOne(
+          participateData
+        );
+
         return res.json({
           success: true,
           modifyContest: contestResult,
           paymentInfo: paymentResult,
+          participateInfo: participateResult,
           transactionId,
           contestId,
         });
@@ -305,8 +317,13 @@ async function run() {
 
     // create payment session
     app.post('/create-checkout-session', async (req, res) => {
-      const { contestId, contestName, contestPrice, participatorEmail } =
-        req.body;
+      const {
+        contestId,
+        contestName,
+        contestPrice,
+        participatorName,
+        participatorEmail,
+      } = req.body;
 
       const amount = parseInt(contestPrice) * 100;
 
@@ -328,6 +345,8 @@ async function run() {
         metadata: {
           contestId,
           contestName,
+          participatorName,
+          participatorEmail,
         },
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled?session_id={CHECKOUT_SESSION_ID}`,
@@ -336,9 +355,9 @@ async function run() {
       res.json({ url: session.url });
     });
 
-    //! Submission APIs
+    //! Participate APIs
     // get submission
-    app.get('/submissions', async (req, res) => {
+    app.get('/participates', async (req, res) => {
       const { contestId, email } = req.query;
       const query = {};
       if (email) {
@@ -350,16 +369,39 @@ async function run() {
 
       // console.log(query);
 
-      const submissionInfo = await submissionCollection.findOne(query);
+      const participatorInfo = await participateCollection.findOne(query);
 
-      res.json(submissionInfo);
+      res.json(participatorInfo);
     });
 
     // add submission into db
-    app.post('/submissions', async (req, res) => {
+    app.patch('/participates/:contestId/:email', async (req, res) => {
       const submissionInfo = req.body;
+      const { contestId, email } = req.params;
 
-      const result = await submissionCollection.insertOne(submissionInfo);
+      const query = {};
+      if (email) {
+        query.participatorEmail = email;
+      }
+      if (contestId) {
+        query.contestId = contestId;
+      }
+
+      const contestResult = await contestCollection.updateOne(
+        { _id: new ObjectId(contestId) },
+        { $inc: { submissionCount: 1 } }
+      );
+
+      const updateParticipate = {
+        $set: {
+          submittedTask: submissionInfo.submittedTask,
+        },
+      };
+
+      const result = await participateCollection.updateOne(
+        query,
+        updateParticipate
+      );
 
       res.json(result);
     });
