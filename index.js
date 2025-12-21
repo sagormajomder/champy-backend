@@ -2,8 +2,20 @@ import cors from 'cors';
 import express from 'express';
 import admin from 'firebase-admin';
 import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
+import crypto from 'node:crypto';
 import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET);
+
+const app = express();
+const port = process.env.PORT || 5000;
+
+function generateTransactionId() {
+  const prefix = 'pi'; // your brand prefix
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const random = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-char random hex
+
+  return `${prefix}_${date}${random}`;
+}
 
 const decoded = Buffer.from(
   process.env.FIREBASE_SERVICE_KEY,
@@ -14,9 +26,6 @@ const serviceAccount = JSON.parse(decoded);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
-const app = express();
-const port = process.env.PORT || 5000;
 
 // MiddleWare
 app.use(cors());
@@ -253,6 +262,7 @@ async function run() {
     app.patch('/contests/:id', async (req, res) => {
       const { id } = req.params;
       const updatedInfo = req.body;
+      // console.log(updatedInfo);
 
       const updateDoc = {
         $set: updatedInfo,
@@ -265,7 +275,8 @@ async function run() {
 
       // update participate contestDeadline
       const contestDeadline = updatedInfo.contestDeadline;
-      const participateResult = await participateCollection.updateOne(
+      // console.log(contestDeadline);
+      const participateResult = await participateCollection.updateMany(
         { contestId: id },
         {
           $set: {
@@ -297,7 +308,7 @@ async function run() {
 
       // console.log(session);
 
-      const transactionId = session.payment_intent;
+      const transactionId = session.payment_intent ?? generateTransactionId();
 
       // Close guard if payment exist
       const isPaymentExist = await paymentCollection.findOne({
@@ -415,9 +426,9 @@ async function run() {
     });
 
     //! Participate APIs
-    // get submission
-    app.get('/participates', async (req, res) => {
-      const { contestId, email } = req.query;
+    // get specific participate
+    app.get('/participates/:contestId/:email', async (req, res) => {
+      const { contestId, email } = req.params;
       const query = {};
       if (email) {
         query.participatorEmail = email;
@@ -444,7 +455,35 @@ async function run() {
       res.json(submissions);
     });
 
-    // add submission into db
+    // add winner participate
+    app.patch('/participates/:id', async (req, res) => {
+      const { id } = req.params;
+      const { contestId } = req.query;
+      const updateWinner = req.body;
+
+      const result = await participateCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: updateWinner,
+        }
+      );
+
+      const updateLoserResult = await participateCollection.updateMany(
+        {
+          contestId,
+          winner: { $exists: false },
+        },
+        {
+          $set: {
+            loser: true,
+          },
+        }
+      );
+
+      res.json(result);
+    });
+
+    // add submitted task info into db
     app.patch('/participates/:contestId/:email', async (req, res) => {
       const submissionInfo = req.body;
       const { contestId, email } = req.params;
