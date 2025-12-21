@@ -105,6 +105,13 @@ async function run() {
     //! User APIs
     // get all users
     app.get('/users', async (req, res) => {
+      const { email } = req.query;
+
+      if (email) {
+        const user = await userCollection.findOne({ email });
+        return res.json(user);
+      }
+
       const users = await userCollection.find().toArray();
       res.json(users);
     });
@@ -123,6 +130,23 @@ async function run() {
       const result = await userCollection.updateOne(
         { _id: new ObjectId(id) },
         updateDoc
+      );
+
+      res.json(result);
+    });
+
+    // update specific User
+    app.patch('/users/:id', async (req, res) => {
+      const { id } = req.params;
+
+      const updateInfo = req.body;
+
+      const update = {
+        $set: updateInfo,
+      };
+      const result = await userCollection.updateOne(
+        { _id: new ObjectId(id) },
+        update
       );
 
       res.json(result);
