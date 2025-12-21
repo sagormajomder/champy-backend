@@ -459,6 +459,7 @@ async function run() {
     });
 
     //! Participate APIs
+
     // get specific participate
     app.get('/participates/:contestId/:email', async (req, res) => {
       const { contestId, email } = req.params;
@@ -502,6 +503,50 @@ async function run() {
         .toArray();
 
       res.json(submissions);
+    });
+
+    // get participator contest states
+    app.get('/participates/contest/winning/stats/:email', async (req, res) => {
+      const { email } = req.params;
+
+      const pipeline = [
+        {
+          $match: {
+            participatorEmail: email,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalContestParticipate: { $sum: 1 },
+            totalContestWon: {
+              $sum: {
+                $cond: [{ $eq: ['$winner', true] }, 1, 0],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalContestWon: 1,
+            totalContestParticipate: 1,
+          },
+        },
+      ];
+
+      const stats = await participateCollection.aggregate(pipeline).toArray();
+
+      // console.log(stats);
+
+      if (stats.length === 0) {
+        return res.json({
+          totalContestWon: 0,
+          totalContestParticipate: 0,
+        });
+      }
+
+      res.json(stats);
     });
 
     // add winner participate
