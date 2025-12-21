@@ -165,6 +165,44 @@ async function run() {
       res.json(contests);
     });
 
+    // get participate contest by paid status
+    app.get('/contests/participate', async (req, res) => {
+      const { paymentStatus, email } = req.query;
+      const query = {};
+      if (email) {
+        query.customer_email = email;
+      }
+      if (paymentStatus) {
+        query.paymentStatus = paymentStatus;
+      }
+
+      // console.log(query);
+
+      const payments = await paymentCollection.find(query).toArray();
+
+      const isPaid = payments.every(pay => pay.paymentStatus === 'paid');
+
+      if (isPaid) {
+        const contestIds = payments.map(pay => pay.contestId);
+        const transactionIds = payments.map(pay => pay.transactionId);
+
+        const contests = await contestCollection
+          .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
+          .sort({ contestDeadline: 1 })
+          .toArray();
+
+        return res.json({
+          paymentStatus: 'paid',
+          contests,
+          transactionIds,
+        });
+      }
+
+      res.json({
+        success: false,
+      });
+    });
+
     // get specific contest
     app.get('/contests/:id', async (req, res) => {
       const { id } = req.params;
@@ -216,23 +254,6 @@ async function run() {
     });
 
     //! Payments APIs
-    // get participate payment info
-    app.get('/payments', async (req, res) => {
-      const { contestId, email } = req.query;
-      const query = {};
-      if (email) {
-        query.customer_email = email;
-      }
-      if (contestId) {
-        query.contestId = contestId;
-      }
-
-      // console.log(query);
-
-      const paymentInfo = await paymentCollection.findOne(query);
-
-      res.json(paymentInfo);
-    });
     // verify payment
     app.get('/payment-success', async (req, res) => {
       const { session_id } = req.query;
