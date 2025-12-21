@@ -263,6 +263,17 @@ async function run() {
         updateDoc
       );
 
+      // update participate contestDeadline
+      const contestDeadline = updatedInfo.contestDeadline;
+      const participateResult = await participateCollection.updateOne(
+        { contestId: id },
+        {
+          $set: {
+            contestDeadline,
+          },
+        }
+      );
+
       res.json(result);
     });
 
@@ -327,6 +338,7 @@ async function run() {
 
         const participateData = {
           contestId,
+          contestDeadline: session.metadata.contestDeadline,
           participatorEmail: session.customer_email,
           participatorName: session.metadata.participatorName,
           createdAt: new Date(),
@@ -365,6 +377,7 @@ async function run() {
       const {
         contestId,
         contestName,
+        contestDeadline,
         contestPrice,
         participatorName,
         participatorEmail,
@@ -392,6 +405,7 @@ async function run() {
           contestName,
           participatorName,
           participatorEmail,
+          contestDeadline,
         },
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled?session_id={CHECKOUT_SESSION_ID}`,
@@ -417,6 +431,17 @@ async function run() {
       const participatorInfo = await participateCollection.findOne(query);
 
       res.json(participatorInfo);
+    });
+
+    // get all submission for specific contest
+    app.get('/participates/:contestId', async (req, res) => {
+      const { contestId } = req.params;
+
+      const submissions = await participateCollection
+        .find({ contestId, submittedTask: { $exists: true } })
+        .toArray();
+
+      res.json(submissions);
     });
 
     // add submission into db
