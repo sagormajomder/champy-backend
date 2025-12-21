@@ -148,6 +148,8 @@ async function run() {
     app.patch('/users/:id', async (req, res) => {
       const { id } = req.params;
 
+      const { email } = req.query;
+
       const updateInfo = req.body;
 
       const update = {
@@ -157,6 +159,17 @@ async function run() {
         { _id: new ObjectId(id) },
         update
       );
+
+      if (email) {
+        const participatorUpdateResult = await participateCollection.updateMany(
+          { participatorEmail: email },
+          {
+            $set: {
+              participatorPhotoURL: updateInfo.photoURL,
+            },
+          }
+        );
+      }
 
       res.json(result);
     });
@@ -276,16 +289,16 @@ async function run() {
       // update participate contestDeadline
       const contestDeadline = updatedInfo.contestDeadline;
       // console.log(contestDeadline);
-      const participateResult = await participateCollection.updateMany(
-        { contestId: id },
-        {
-          $set: {
-            contestDeadline,
-          },
-        }
-      );
+      // const participateResult = await participateCollection.updateMany(
+      //   { contestId: id },
+      //   {
+      //     $set: {
+      //       contestDeadline,
+      //     },
+      //   }
+      // );
 
-      res.json(result);
+      // res.json(result);
     });
 
     // Delete Contest
@@ -350,8 +363,9 @@ async function run() {
         const participateData = {
           contestId,
           contestDeadline: session.metadata.contestDeadline,
-          participatorEmail: session.customer_email,
           participatorName: session.metadata.participatorName,
+          participatorEmail: session.customer_email,
+          participatorPhotoURL: session.metadata.participatorPhotoURL,
           createdAt: new Date(),
         };
 
@@ -392,6 +406,7 @@ async function run() {
         contestPrice,
         participatorName,
         participatorEmail,
+        participatorPhotoURL,
       } = req.body;
 
       const amount = parseInt(contestPrice) * 100;
@@ -416,6 +431,7 @@ async function run() {
           contestName,
           participatorName,
           participatorEmail,
+          participatorPhotoURL,
           contestDeadline,
         },
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -445,8 +461,24 @@ async function run() {
     });
 
     // get all submission for specific contest
+    //get winner participate for specific contest
     app.get('/participates/:contestId', async (req, res) => {
       const { contestId } = req.params;
+
+      const { winner } = req.query;
+
+      console.log(winner);
+
+      if (winner) {
+        const winnerParticipator = await participateCollection.findOne({
+          contestId,
+          winner: !!winner,
+        });
+
+        console.log(winnerParticipator);
+
+        return res.json(winnerParticipator);
+      }
 
       const submissions = await participateCollection
         .find({ contestId, submittedTask: { $exists: true } })
