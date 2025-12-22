@@ -325,6 +325,24 @@ async function run() {
       res.json(contests);
     });
 
+    // get contests by search
+    // Public Route
+    app.get('/contests/search', async (req, res) => {
+      const { searchText } = req.query;
+
+      const query = {};
+
+      query.$or = [
+        { contestName: { $regex: searchText, $options: 'i' } },
+        { contestDesc: { $regex: searchText, $options: 'i' } },
+        { contestType: { $regex: searchText, $options: 'i' } },
+      ];
+
+      const contests = await contestCollection.find(query).toArray();
+
+      res.json(contests);
+    });
+
     // get winner participator contests
     // JWT DONE
     app.get(
