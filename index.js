@@ -99,12 +99,25 @@ async function run() {
       next();
     };
 
-    const verifyContentCreator = async (req, res, next) => {
+    const verifyCreator = async (req, res, next) => {
       const email = req.token_email;
       const query = { email };
       const user = await userCollection.findOne(query);
 
-      if (!user || user.role !== 'content-creator') {
+      if (!user || user.role !== 'creator') {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
+      next();
+    };
+
+    // Verify User role
+    const verifyUser = async (req, res, next) => {
+      const email = req.token_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+
+      if (!user || user.role !== 'user') {
         return res.status(403).send({ message: 'forbidden access' });
       }
 
@@ -113,10 +126,14 @@ async function run() {
 
     //! User APIs
     // get all users
-    app.get('/users', async (req, res) => {
+    // JWT DONE
+    app.get('/users', verifyFireBaseToken, async (req, res) => {
       const { email } = req.query;
 
       if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).json({ message: 'forbidden access' });
+        }
         const user = await userCollection.findOne({ email });
         return res.json(user);
       }
@@ -125,56 +142,79 @@ async function run() {
       res.json(users);
     });
 
-    // change user Role
-    app.patch('/users/:id/role', async (req, res) => {
-      const { id } = req.params;
-      const userInfo = req.body;
-
-      const updateDoc = {
-        $set: {
-          role: userInfo.role,
-        },
-      };
-
-      const result = await userCollection.updateOne(
-        { _id: new ObjectId(id) },
-        updateDoc
-      );
-
-      res.json(result);
+    // get user role
+    // Public Route
+    app.get('/users/:email/role', verifyFireBaseToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+      res.send({ role: user?.role || 'user' });
     });
+
+    // change user Role
+    // JWT DONE
+    app.patch(
+      '/users/:id/role',
+      verifyFireBaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { id } = req.params;
+        const userInfo = req.body;
+
+        const updateDoc = {
+          $set: {
+            role: userInfo.role,
+          },
+        };
+
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
+
+        res.json(result);
+      }
+    );
 
     // update specific User
-    app.patch('/users/:id', async (req, res) => {
-      const { id } = req.params;
+    // JWT DONE
+    app.patch(
+      '/users/:id',
+      verifyFireBaseToken,
+      verifyUser,
+      async (req, res) => {
+        const { id } = req.params;
 
-      const { email } = req.query;
+        const { email } = req.query;
 
-      const updateInfo = req.body;
+        const updateInfo = req.body;
 
-      const update = {
-        $set: updateInfo,
-      };
-      const result = await userCollection.updateOne(
-        { _id: new ObjectId(id) },
-        update
-      );
-
-      if (email) {
-        const participatorUpdateResult = await participateCollection.updateMany(
-          { participatorEmail: email },
-          {
-            $set: {
-              participatorPhotoURL: updateInfo.photoURL,
-            },
-          }
+        const update = {
+          $set: updateInfo,
+        };
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          update
         );
-      }
 
-      res.json(result);
-    });
+        if (email) {
+          const participatorUpdateResult =
+            await participateCollection.updateMany(
+              { participatorEmail: email },
+              {
+                $set: {
+                  participatorPhotoURL: updateInfo.photoURL,
+                },
+              }
+            );
+        }
+
+        res.json(result);
+      }
+    );
 
     // register user into DB
+    // Public Route
     app.post('/users', async (req, res) => {
       const userInfo = req.body;
 
@@ -212,23 +252,29 @@ async function run() {
     });
 
     // get winner participator contests
-    app.get('/contests/winner-participator', async (req, res) => {
-      const { email } = req.query;
+    app.get(
+      '/contests/winner-participator',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { email } = req.query;
 
-      const participates = await participateCollection
-        .find({ participatorEmail: email, winner: true })
-        .toArray();
+        const participates = await participateCollection
+          .find({ participatorEmail: email, winner: true })
+          .toArray();
 
-      const contestIds = participates.map(participate => participate.contestId);
-      const contests = await contestCollection
-        .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
-        .toArray();
+        const contestIds = participates.map(
+          participate => participate.contestId
+        );
+        const contests = await contestCollection
+          .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
+          .toArray();
 
-      return res.json(contests);
-    });
+        return res.json(contests);
+      }
+    );
 
     // get participator contests by paid status
-    app.get('/contests/participate', async (req, res) => {
+    app.get('/contests/participate', verifyFireBaseToken, async (req, res) => {
       const { paymentStatus, email } = req.query;
       const query = {};
       if (email) {
@@ -267,7 +313,7 @@ async function run() {
     });
 
     // get specific contest
-    app.get('/contests/:id', async (req, res) => {
+    app.get('/contests/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
       // console.log(id);
 
@@ -279,7 +325,7 @@ async function run() {
     });
 
     // create contest
-    app.post('/contests', async (req, res) => {
+    app.post('/contests', verifyFireBaseToken, async (req, res) => {
       const contestInfo = req.body;
       contestInfo.createdAt = new Date();
 
@@ -289,7 +335,7 @@ async function run() {
     });
 
     // update contest
-    app.patch('/contests/:id', async (req, res) => {
+    app.patch('/contests/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
       const updatedInfo = req.body;
       // console.log(updatedInfo);
@@ -319,7 +365,7 @@ async function run() {
     });
 
     // Delete Contest
-    app.delete('/contests/:id', async (req, res) => {
+    app.delete('/contests/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
 
       const result = await contestCollection.deleteOne({
@@ -331,7 +377,7 @@ async function run() {
 
     //! Payments APIs
     // verify payment
-    app.get('/payment-success', async (req, res) => {
+    app.get('/payment-success', verifyFireBaseToken, async (req, res) => {
       const { session_id } = req.query;
 
       const session = await stripe.checkout.sessions.retrieve(session_id);
@@ -404,7 +450,7 @@ async function run() {
     });
 
     // get payment cancelled contest
-    app.get('/payment-cancelled', async (req, res) => {
+    app.get('/payment-cancelled', verifyFireBaseToken, async (req, res) => {
       const { session_id } = req.query;
 
       const session = await stripe.checkout.sessions.retrieve(session_id);
@@ -415,142 +461,158 @@ async function run() {
     });
 
     // create payment session
-    app.post('/create-checkout-session', async (req, res) => {
-      const {
-        contestId,
-        contestName,
-        contestDeadline,
-        contestPrice,
-        participatorName,
-        participatorEmail,
-        participatorPhotoURL,
-      } = req.body;
-
-      const amount = parseInt(contestPrice) * 100;
-
-      const session = await stripe.checkout.sessions.create({
-        line_items: [
-          {
-            price_data: {
-              currency: 'bdt',
-              product_data: {
-                name: `Please pay fee for the contest named "${contestName}"`,
-              },
-              unit_amount: amount,
-            },
-            quantity: 1,
-          },
-        ],
-        mode: 'payment',
-        customer_email: participatorEmail,
-        metadata: {
+    app.post(
+      '/create-checkout-session',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const {
           contestId,
           contestName,
+          contestDeadline,
+          contestPrice,
           participatorName,
           participatorEmail,
           participatorPhotoURL,
-          contestDeadline,
-        },
-        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled?session_id={CHECKOUT_SESSION_ID}`,
-      });
+        } = req.body;
 
-      res.json({ url: session.url });
-    });
+        const amount = parseInt(contestPrice) * 100;
+
+        const session = await stripe.checkout.sessions.create({
+          line_items: [
+            {
+              price_data: {
+                currency: 'bdt',
+                product_data: {
+                  name: `Please pay fee for the contest named "${contestName}"`,
+                },
+                unit_amount: amount,
+              },
+              quantity: 1,
+            },
+          ],
+          mode: 'payment',
+          customer_email: participatorEmail,
+          metadata: {
+            contestId,
+            contestName,
+            participatorName,
+            participatorEmail,
+            participatorPhotoURL,
+            contestDeadline,
+          },
+          success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled?session_id={CHECKOUT_SESSION_ID}`,
+        });
+
+        res.json({ url: session.url });
+      }
+    );
 
     //! Participate APIs
 
     // get specific participate
-    app.get('/participates/:contestId/:email', async (req, res) => {
-      const { contestId, email } = req.params;
-      const query = {};
-      if (email) {
-        query.participatorEmail = email;
+    app.get(
+      '/participates/:contestId/:email',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { contestId, email } = req.params;
+        const query = {};
+        if (email) {
+          query.participatorEmail = email;
+        }
+        if (contestId) {
+          query.contestId = contestId;
+        }
+
+        // console.log(query);
+
+        const participatorInfo = await participateCollection.findOne(query);
+
+        res.json(participatorInfo);
       }
-      if (contestId) {
-        query.contestId = contestId;
-      }
-
-      // console.log(query);
-
-      const participatorInfo = await participateCollection.findOne(query);
-
-      res.json(participatorInfo);
-    });
+    );
 
     // get all submission for specific contest
     //get winner participate for specific contest
-    app.get('/participates/:contestId', async (req, res) => {
-      const { contestId } = req.params;
+    app.get(
+      '/participates/:contestId',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { contestId } = req.params;
 
-      const { winner } = req.query;
+        const { winner } = req.query;
 
-      // console.log(winner);
+        // console.log(winner);
 
-      if (winner) {
-        const winnerParticipator = await participateCollection.findOne({
-          contestId,
-          winner: !!winner,
-        });
+        if (winner) {
+          const winnerParticipator = await participateCollection.findOne({
+            contestId,
+            winner: !!winner,
+          });
 
-        // console.log(winnerParticipator);
+          // console.log(winnerParticipator);
 
-        return res.json(winnerParticipator);
+          return res.json(winnerParticipator);
+        }
+
+        const submissions = await participateCollection
+          .find({ contestId, submittedTask: { $exists: true } })
+          .toArray();
+
+        res.json(submissions);
       }
-
-      const submissions = await participateCollection
-        .find({ contestId, submittedTask: { $exists: true } })
-        .toArray();
-
-      res.json(submissions);
-    });
+    );
 
     // get participator contest states
-    app.get('/participates/contest/winning/stats/:email', async (req, res) => {
-      const { email } = req.params;
+    app.get(
+      '/participates/contest/winning/stats/:email',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { email } = req.params;
 
-      const pipeline = [
-        {
-          $match: {
-            participatorEmail: email,
+        const pipeline = [
+          {
+            $match: {
+              participatorEmail: email,
+            },
           },
-        },
-        {
-          $group: {
-            _id: null,
-            totalContestParticipate: { $sum: 1 },
-            totalContestWon: {
-              $sum: {
-                $cond: [{ $eq: ['$winner', true] }, 1, 0],
+          {
+            $group: {
+              _id: null,
+              totalContestParticipate: { $sum: 1 },
+              totalContestWon: {
+                $sum: {
+                  $cond: [{ $eq: ['$winner', true] }, 1, 0],
+                },
               },
             },
           },
-        },
-        {
-          $project: {
-            _id: 0,
-            totalContestWon: 1,
-            totalContestParticipate: 1,
+          {
+            $project: {
+              _id: 0,
+              totalContestWon: 1,
+              totalContestParticipate: 1,
+            },
           },
-        },
-      ];
+        ];
 
-      const stats = await participateCollection.aggregate(pipeline).toArray();
+        const stats = await participateCollection.aggregate(pipeline).toArray();
 
-      // console.log(stats);
+        // console.log(stats);
 
-      if (stats.length === 0) {
-        return res.json({
-          totalContestWon: 0,
-          totalContestParticipate: 0,
-        });
+        if (stats.length === 0) {
+          return res.json({
+            totalContestWon: 0,
+            totalContestParticipate: 0,
+          });
+        }
+
+        res.json(stats);
       }
-
-      res.json(stats);
-    });
+    );
 
     // add winner participate
-    app.patch('/participates/:id', async (req, res) => {
+    app.patch('/participates/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
       const { contestId } = req.query;
       const updateWinner = req.body;
@@ -578,36 +640,40 @@ async function run() {
     });
 
     // add submitted task info into db
-    app.patch('/participates/:contestId/:email', async (req, res) => {
-      const submissionInfo = req.body;
-      const { contestId, email } = req.params;
+    app.patch(
+      '/participates/:contestId/:email',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const submissionInfo = req.body;
+        const { contestId, email } = req.params;
 
-      const query = {};
-      if (email) {
-        query.participatorEmail = email;
+        const query = {};
+        if (email) {
+          query.participatorEmail = email;
+        }
+        if (contestId) {
+          query.contestId = contestId;
+        }
+
+        const contestResult = await contestCollection.updateOne(
+          { _id: new ObjectId(contestId) },
+          { $inc: { submissionCount: 1 } }
+        );
+
+        const updateParticipate = {
+          $set: {
+            submittedTask: submissionInfo.submittedTask,
+          },
+        };
+
+        const result = await participateCollection.updateOne(
+          query,
+          updateParticipate
+        );
+
+        res.json(result);
       }
-      if (contestId) {
-        query.contestId = contestId;
-      }
-
-      const contestResult = await contestCollection.updateOne(
-        { _id: new ObjectId(contestId) },
-        { $inc: { submissionCount: 1 } }
-      );
-
-      const updateParticipate = {
-        $set: {
-          submittedTask: submissionInfo.submittedTask,
-        },
-      };
-
-      const result = await participateCollection.updateOne(
-        query,
-        updateParticipate
-      );
-
-      res.json(result);
-    });
+    );
   } finally {
   }
 }
