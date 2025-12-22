@@ -111,6 +111,19 @@ async function run() {
       next();
     };
 
+    // Verify Admin or Creator role
+    const verifyAdminOrCreator = async (req, res, next) => {
+      const email = req.token_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+
+      if (!user || (user.role !== 'admin' && user.role !== 'creator')) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+
+      next();
+    };
+
     // Verify User role
     const verifyUser = async (req, res, next) => {
       const email = req.token_email;
@@ -147,6 +160,13 @@ async function run() {
     app.get('/users/:email/role', verifyFireBaseToken, async (req, res) => {
       const email = req.params.email;
       const query = { email };
+
+      if (email) {
+        if (email !== req.token_email) {
+          return res.status(403).json({ message: 'forbidden access' });
+        }
+      }
+
       const user = await userCollection.findOne(query);
       res.send({ role: user?.role || 'user' });
     });
@@ -237,8 +257,10 @@ async function run() {
     // get all contest list
     // get contest list by specific creator
     // get contest list by status
+    // PUBLIC ROUTE
     app.get('/contests', async (req, res) => {
       const { email, status } = req.query;
+
       const query = {};
       if (email) {
         query.creatorEmail = email;
@@ -252,9 +274,11 @@ async function run() {
     });
 
     // get winner participator contests
+    // JWT DONE
     app.get(
       '/contests/winner-participator',
       verifyFireBaseToken,
+      verifyUser,
       async (req, res) => {
         const { email } = req.query;
 
@@ -274,45 +298,52 @@ async function run() {
     );
 
     // get participator contests by paid status
-    app.get('/contests/participate', verifyFireBaseToken, async (req, res) => {
-      const { paymentStatus, email } = req.query;
-      const query = {};
-      if (email) {
-        query.customer_email = email;
-      }
+    // JWT DONE
+    app.get(
+      '/contests/participate',
+      verifyFireBaseToken,
+      verifyUser,
+      async (req, res) => {
+        const { paymentStatus, email } = req.query;
+        const query = {};
+        if (email) {
+          query.customer_email = email;
+        }
 
-      if (paymentStatus) {
-        query.paymentStatus = paymentStatus;
-      }
+        if (paymentStatus) {
+          query.paymentStatus = paymentStatus;
+        }
 
-      // console.log(query);
+        // console.log(query);
 
-      const payments = await paymentCollection.find(query).toArray();
+        const payments = await paymentCollection.find(query).toArray();
 
-      const isPaid = payments.every(pay => pay.paymentStatus === 'paid');
+        const isPaid = payments.every(pay => pay.paymentStatus === 'paid');
 
-      if (isPaid) {
-        const contestIds = payments.map(pay => pay.contestId);
-        const transactionIds = payments.map(pay => pay.transactionId);
+        if (isPaid) {
+          const contestIds = payments.map(pay => pay.contestId);
+          const transactionIds = payments.map(pay => pay.transactionId);
 
-        const contests = await contestCollection
-          .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
-          .sort({ contestDeadline: 1 })
-          .toArray();
+          const contests = await contestCollection
+            .find({ _id: { $in: contestIds.map(id => new ObjectId(id)) } })
+            .sort({ contestDeadline: 1 })
+            .toArray();
 
-        return res.json({
-          paymentStatus: 'paid',
-          contests,
-          transactionIds,
+          return res.json({
+            paymentStatus: 'paid',
+            contests,
+            transactionIds,
+          });
+        }
+
+        res.json({
+          success: false,
         });
       }
-
-      res.json({
-        success: false,
-      });
-    });
+    );
 
     // get specific contest
+    // JWT DONE
     app.get('/contests/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
       // console.log(id);
@@ -325,55 +356,73 @@ async function run() {
     });
 
     // create contest
-    app.post('/contests', verifyFireBaseToken, async (req, res) => {
-      const contestInfo = req.body;
-      contestInfo.createdAt = new Date();
+    // JWT DONE
+    app.post(
+      '/contests',
+      verifyFireBaseToken,
+      verifyCreator,
+      async (req, res) => {
+        const contestInfo = req.body;
+        contestInfo.createdAt = new Date();
 
-      const result = await contestCollection.insertOne(contestInfo);
+        const result = await contestCollection.insertOne(contestInfo);
 
-      res.json(result);
-    });
+        res.json(result);
+      }
+    );
 
     // update contest
-    app.patch('/contests/:id', verifyFireBaseToken, async (req, res) => {
-      const { id } = req.params;
-      const updatedInfo = req.body;
-      // console.log(updatedInfo);
+    // JWT DONE
+    app.patch(
+      '/contests/:id',
+      verifyFireBaseToken,
+      verifyAdminOrCreator,
+      async (req, res) => {
+        const { id } = req.params;
+        const updatedInfo = req.body;
+        // console.log(updatedInfo);
 
-      const updateDoc = {
-        $set: updatedInfo,
-      };
+        const updateDoc = {
+          $set: updatedInfo,
+        };
 
-      const result = await contestCollection.updateOne(
-        { _id: new ObjectId(id) },
-        updateDoc
-      );
+        const result = await contestCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
 
-      // update participate contestDeadline
-      const contestDeadline = updatedInfo.contestDeadline;
-      // console.log(contestDeadline);
-      const participateResult = await participateCollection.updateMany(
-        { contestId: id },
-        {
-          $set: {
-            contestDeadline,
-          },
-        }
-      );
+        // update participate contestDeadline
+        const contestDeadline = updatedInfo.contestDeadline;
+        // console.log(contestDeadline);
+        const participateResult = await participateCollection.updateMany(
+          { contestId: id },
+          {
+            $set: {
+              contestDeadline,
+            },
+          }
+        );
 
-      res.json(result);
-    });
+        res.json(result);
+      }
+    );
 
     // Delete Contest
-    app.delete('/contests/:id', verifyFireBaseToken, async (req, res) => {
-      const { id } = req.params;
+    // JWT DONE
+    app.delete(
+      '/contests/:id',
+      verifyFireBaseToken,
+      verifyAdminOrCreator,
+      async (req, res) => {
+        const { id } = req.params;
 
-      const result = await contestCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
+        const result = await contestCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
 
-      res.json(result);
-    });
+        res.json(result);
+      }
+    );
 
     //! Payments APIs
     // verify payment
@@ -464,6 +513,7 @@ async function run() {
     app.post(
       '/create-checkout-session',
       verifyFireBaseToken,
+      verifyUser,
       async (req, res) => {
         const {
           contestId,
@@ -511,6 +561,7 @@ async function run() {
     //! Participate APIs
 
     // get specific participate
+    // PUBLIC ROUTE
     app.get(
       '/participates/:contestId/:email',
       verifyFireBaseToken,
@@ -533,7 +584,8 @@ async function run() {
     );
 
     // get all submission for specific contest
-    //get winner participate for specific contest
+    // get winner participate for specific contest
+    // PUBLIC ROUTE
     app.get(
       '/participates/:contestId',
       verifyFireBaseToken,
@@ -564,9 +616,11 @@ async function run() {
     );
 
     // get participator contest states
+    // JWT DONE
     app.get(
       '/participates/contest/winning/stats/:email',
       verifyFireBaseToken,
+      verifyUser,
       async (req, res) => {
         const { email } = req.params;
 
@@ -612,37 +666,45 @@ async function run() {
     );
 
     // add winner participate
-    app.patch('/participates/:id', verifyFireBaseToken, async (req, res) => {
-      const { id } = req.params;
-      const { contestId } = req.query;
-      const updateWinner = req.body;
+    // JWT DONE
+    app.patch(
+      '/participates/:id',
+      verifyFireBaseToken,
+      verifyCreator,
+      async (req, res) => {
+        const { id } = req.params;
+        const { contestId } = req.query;
+        const updateWinner = req.body;
 
-      const result = await participateCollection.updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: updateWinner,
-        }
-      );
+        const result = await participateCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: updateWinner,
+          }
+        );
 
-      const updateLoserResult = await participateCollection.updateMany(
-        {
-          contestId,
-          winner: { $exists: false },
-        },
-        {
-          $set: {
-            loser: true,
+        const updateLoserResult = await participateCollection.updateMany(
+          {
+            contestId,
+            winner: { $exists: false },
           },
-        }
-      );
+          {
+            $set: {
+              loser: true,
+            },
+          }
+        );
 
-      res.json(result);
-    });
+        res.json(result);
+      }
+    );
 
     // add submitted task info into db
+    // JWT DONE
     app.patch(
       '/participates/:contestId/:email',
       verifyFireBaseToken,
+      verifyUser,
       async (req, res) => {
         const submissionInfo = req.body;
         const { contestId, email } = req.params;
