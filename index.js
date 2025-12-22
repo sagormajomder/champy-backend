@@ -258,16 +258,16 @@ async function run() {
     app.get('/leaderboard', async (req, res) => {
       const pipeline = [
         {
-          $match: {
-            winner: true,
-          },
-        },
-        {
           $group: {
             _id: '$participatorEmail',
             name: { $first: '$participatorName' },
             image: { $first: '$participatorPhotoURL' },
-            winCount: { $sum: 1 },
+            winCount: {
+              $sum: {
+                $cond: [{ $eq: ['$winner', true] }, 1, 0],
+              },
+            },
+            participationCount: { $sum: 1 },
           },
         },
         {
@@ -288,6 +288,7 @@ async function run() {
             image: 1,
             email: '$_id',
             winCount: 1,
+            participationCount: 1,
           },
         },
         {
