@@ -253,6 +253,57 @@ async function run() {
       res.json(result);
     });
 
+    // get leaderboard data
+    // Public Route
+    app.get('/leaderboard', async (req, res) => {
+      const pipeline = [
+        {
+          $match: {
+            winner: true,
+          },
+        },
+        {
+          $group: {
+            _id: '$participatorEmail',
+            name: { $first: '$participatorName' },
+            image: { $first: '$participatorPhotoURL' },
+            winCount: { $sum: 1 },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: 'email',
+            as: 'user',
+          },
+        },
+        {
+          $unwind: '$user',
+        },
+        {
+          $project: {
+            _id: '$user._id',
+            name: 1,
+            image: 1,
+            email: '$_id',
+            winCount: 1,
+          },
+        },
+        {
+          $sort: {
+            winCount: -1,
+          },
+        },
+      ];
+
+      const leaderboard = await participateCollection
+        .aggregate(pipeline)
+        .toArray();
+
+      res.json(leaderboard);
+    });
+
     //! Contest APIs
     // get all contest list
     // get contest list by specific creator
