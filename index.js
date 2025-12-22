@@ -141,7 +141,7 @@ async function run() {
     // get all users
     // JWT DONE
     app.get('/users', verifyFireBaseToken, async (req, res) => {
-      const { email } = req.query;
+      const { email, limit = 0, skip = 0 } = req.query;
 
       if (email) {
         if (email !== req.token_email) {
@@ -151,8 +151,15 @@ async function run() {
         return res.json(user);
       }
 
-      const users = await userCollection.find().toArray();
-      res.json(users);
+      const users = await userCollection
+        .find()
+        .limit(Number(limit))
+        .skip(Number(skip))
+        .toArray();
+
+      const totalUsersCount = await userCollection.countDocuments();
+
+      res.json({ users, totalUsersCount });
     });
 
     // get user role
