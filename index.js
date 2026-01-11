@@ -421,7 +421,7 @@ async function run() {
 
     // get specific contest
     // JWT DONE
-    app.get('/contests/:id', verifyFireBaseToken, async (req, res) => {
+    app.get('/contests/:id', async (req, res) => {
       const { id } = req.params;
       // console.log(id);
 
@@ -639,58 +639,50 @@ async function run() {
 
     // get specific participate
     // PUBLIC ROUTE
-    app.get(
-      '/participates/:contestId/:email',
-      verifyFireBaseToken,
-      async (req, res) => {
-        const { contestId, email } = req.params;
-        const query = {};
-        if (email) {
-          query.participatorEmail = email;
-        }
-        if (contestId) {
-          query.contestId = contestId;
-        }
-
-        // console.log(query);
-
-        const participatorInfo = await participateCollection.findOne(query);
-
-        res.json(participatorInfo);
+    app.get('/participates/:contestId/:email', async (req, res) => {
+      const { contestId, email } = req.params;
+      const query = {};
+      if (email) {
+        query.participatorEmail = email;
       }
-    );
+      if (contestId) {
+        query.contestId = contestId;
+      }
+
+      // console.log(query);
+
+      const participatorInfo = await participateCollection.findOne(query);
+
+      res.json(participatorInfo);
+    });
 
     // get all submission for specific contest
     // get winner participate for specific contest
     // PUBLIC ROUTE
-    app.get(
-      '/participates/:contestId',
-      verifyFireBaseToken,
-      async (req, res) => {
-        const { contestId } = req.params;
+    app.get('/participates/:contestId', async (req, res) => {
+      const { contestId } = req.params;
 
-        const { winner } = req.query;
+      const { winner } = req.query;
 
-        // console.log(winner);
+      // console.log(winner);
 
-        if (winner) {
-          const winnerParticipator = await participateCollection.findOne({
-            contestId,
-            winner: !!winner,
-          });
+      if (winner) {
+        const winnerParticipator = await participateCollection.findOne({
+          contestId,
+          winner: !!winner,
+        });
 
-          // console.log(winnerParticipator);
+        // console.log(winnerParticipator);
 
-          return res.json(winnerParticipator);
-        }
-
-        const submissions = await participateCollection
-          .find({ contestId, submittedTask: { $exists: true } })
-          .toArray();
-
-        res.json(submissions);
+        return res.json(winnerParticipator);
       }
-    );
+
+      const submissions = await participateCollection
+        .find({ contestId, submittedTask: { $exists: true } })
+        .toArray();
+
+      res.json(submissions);
+    });
 
     // get participator contest states
     // JWT DONE
