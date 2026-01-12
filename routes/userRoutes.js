@@ -9,8 +9,8 @@ import {
 } from '../controllers/userController.js';
 import {
   verifyAdmin,
+  verifyAdminOrUser,
   verifyFireBaseToken,
-  verifyUser,
 } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -23,7 +23,7 @@ router.patch(
   verifyAdmin,
   changeUserRole
 );
-router.patch('/users/:id', verifyFireBaseToken, verifyUser, updateUser);
+router.patch('/users/:id', verifyFireBaseToken, verifyAdminOrUser, updateUser);
 router.post('/users', registerUser);
 router.get('/leaderboard', getLeaderboard);
 

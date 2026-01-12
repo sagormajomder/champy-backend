@@ -76,3 +76,15 @@ export const verifyUser = async (req, res, next) => {
 
   next();
 };
+
+export const verifyAdminOrUser = async (req, res, next) => {
+  const email = req.token_email;
+  const query = { email };
+  const user = await collections.users.findOne(query);
+
+  if (!user || (user.role !== 'admin' && user.role !== 'user')) {
+    return res.status(403).send({ message: 'forbidden access' });
+  }
+
+  next();
+};
