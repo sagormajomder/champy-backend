@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '../config/db.js';
 
 export const getAllContests = async (req, res) => {
-  const { email, status, search } = req.query;
+  const { email, status, search, page = 1, limit, category, sort } = req.query;
 
   const query = {};
   if (email) {
@@ -11,6 +11,9 @@ export const getAllContests = async (req, res) => {
   if (status) {
     query.contestStatus = status;
   }
+  if (category && category !== 'all') {
+    query.contestType = category;
+  }
   if (search) {
     query.$or = [
       { contestName: { $regex: search, $options: 'i' } },
@@ -18,8 +21,47 @@ export const getAllContests = async (req, res) => {
       { contestType: { $regex: search, $options: 'i' } },
     ];
   }
-  const contests = await collections.contests.find(query).toArray();
 
+  let sortOptions = {};
+  if (sort) {
+    switch (sort) {
+      case 'upcoming':
+        sortOptions = { contestDeadline: 1 };
+        break;
+      case 'price-asc':
+        sortOptions = { contestPrice: 1 };
+        break;
+      case 'price-desc':
+        sortOptions = { contestPrice: -1 };
+        break;
+      case 'popular':
+        sortOptions = { participatedCount: -1 };
+        break;
+      default:
+        sortOptions = { participatedCount: -1 }; // Default sort
+        break;
+    }
+  }
+
+  // Handle Pagination
+  if (page && limit) {
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const contests = await collections.contests
+      .find(query)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNumber)
+      .toArray();
+
+    const totalCount = await collections.contests.countDocuments(query);
+
+    return res.json({ contests, totalCount });
+  }
+
+  const contests = await collections.contests.find(query).toArray();
   res.json(contests);
 };
 
