@@ -9,7 +9,6 @@ import {
 } from '../controllers/userController.js';
 import {
   verifyAdmin,
-  verifyAdminOrUser,
   verifyFireBaseToken,
 } from '../middleware/authMiddleware.js';
 
@@ -23,7 +22,7 @@ router.patch(
   verifyAdmin,
   changeUserRole
 );
-router.patch('/users/:id', verifyFireBaseToken, verifyAdminOrUser, updateUser);
+router.patch('/users/:id', verifyFireBaseToken, updateUser);
 router.post('/users', registerUser);
 router.get('/leaderboard', getLeaderboard);
 
