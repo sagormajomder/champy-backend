@@ -6,6 +6,9 @@ import participateRoutes from './routes/participateRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
+import dns from 'node:dns';
+dns.setServers(['1.1.1.1']);
+
 const app = express();
 const port = process.env.PORT || 5000;
 
