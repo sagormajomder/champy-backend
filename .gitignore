@@ -1,3 +1,4 @@
 node_modules
 .env
 champy-sm-firebase-admin-key.json
+.vercel

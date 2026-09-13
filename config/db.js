@@ -8,6 +8,7 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
+  maxPoolSize: 10,
 });
 
 let db;
@@ -26,7 +27,7 @@ async function connectDB() {
     return db;
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1);
+    throw error;
   }
 }
 

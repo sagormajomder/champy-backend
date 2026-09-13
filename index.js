@@ -6,15 +6,20 @@ import participateRoutes from './routes/participateRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 
-import dns from 'node:dns';
-dns.setServers(['1.1.1.1']);
-
 const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Server Root Route
 app.get('/', (req, res) => {
@@ -27,12 +32,22 @@ app.use(contestRoutes);
 app.use(paymentRoutes);
 app.use(participateRoutes);
 
-async function run() {
-  await connectDB();
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res
+    .status(500)
+    .json({ error: 'Internal Server Error', message: err.message });
+});
 
-  app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-  });
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      app.listen(port, () => {
+        console.log(`Server is running at http://localhost:${port}`);
+      });
+    })
+    .catch(console.dir);
 }
 
-run().catch(console.dir);
+export default app;

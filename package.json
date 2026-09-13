@@ -4,21 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file .env index.js",
-    "dev": "nodemon --env-file .env index.js"
+    "start": "node index.js",
+    "dev-start": "node --env-file .env index.js",
+    "dev": "node --watch --env-file .env index.js"
   },
   "keywords": [],
   "author": "Sagor Majomder",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "firebase-admin": "^13.6.0",
     "mongodb": "^7.0.0",
     "stripe": "^20.1.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.11"
   }
 }
