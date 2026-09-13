@@ -8,13 +8,13 @@ import {
   getParticipatorContestsByPaidStatus,
   getWinnerParticipatorContests,
   updateContest,
-} from '../controllers/contestController.js';
+} from '../controllers/contest.controller.js';
 import {
   verifyAdminOrCreator,
   verifyCreator,
   verifyFireBaseToken,
   verifyUser,
-} from '../middleware/authMiddleware.js';
+} from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -24,13 +24,13 @@ router.get(
   '/contests/winner-participator',
   verifyFireBaseToken,
   verifyUser,
-  getWinnerParticipatorContests
+  getWinnerParticipatorContests,
 );
 router.get(
   '/contests/participate',
   verifyFireBaseToken,
   verifyUser,
-  getParticipatorContestsByPaidStatus
+  getParticipatorContestsByPaidStatus,
 );
 router.get('/contests/:id', getContestById);
 router.post('/contests', verifyFireBaseToken, verifyCreator, createContest);
@@ -38,13 +38,13 @@ router.patch(
   '/contests/:id',
   verifyFireBaseToken,
   verifyAdminOrCreator,
-  updateContest
+  updateContest,
 );
 router.delete(
   '/contests/:id',
   verifyFireBaseToken,
   verifyAdminOrCreator,
-  deleteContest
+  deleteContest,
 );
 
 export default router;

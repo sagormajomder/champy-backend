@@ -5,12 +5,12 @@ import {
   getParticipatorContestStats,
   getSpecificParticipate,
   getSubmissionsOrWinner,
-} from '../controllers/participateController.js';
+} from '../controllers/participate.controller.js';
 import {
   verifyCreator,
   verifyFireBaseToken,
   verifyUser,
-} from '../middleware/authMiddleware.js';
+} from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -20,19 +20,19 @@ router.get(
   '/participates/contest/winning/stats/:email',
   verifyFireBaseToken,
   verifyUser,
-  getParticipatorContestStats
+  getParticipatorContestStats,
 );
 router.patch(
   '/participates/:id',
   verifyFireBaseToken,
   verifyCreator,
-  addWinnerParticipate
+  addWinnerParticipate,
 );
 router.patch(
   '/participates/:contestId/:email',
   verifyFireBaseToken,
   verifyUser,
-  addSubmittedTaskInfo
+  addSubmittedTaskInfo,
 );
 
 export default router;

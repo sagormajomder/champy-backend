@@ -2,33 +2,51 @@ import { MongoClient, ServerApiVersion } from 'mongodb';
 
 const uri = process.env.DB_URI;
 
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-  maxPoolSize: 10,
-});
+let client = null;
+let db = null;
+export const collections = {};
 
-let db;
-const collections = {};
-
-async function connectDB() {
-  if (db) return db;
-  try {
-    await client.connect();
-    db = client.db('champyDB');
-    collections.users = db.collection('users');
-    collections.contests = db.collection('contests');
-    collections.payments = db.collection('payments');
-    collections.participates = db.collection('participates');
-    console.log('Connected to MongoDB!');
-    return db;
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw error;
+export function getClient() {
+  if (!client) {
+    client = new MongoClient(uri, {
+      serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+      },
+      maxPoolSize: 5,
+    });
   }
+  return client;
 }
 
-export { client, collections, connectDB };
+export function getDB(dbName = 'champyDB') {
+  if (!db) {
+    db = getClient().db(dbName);
+  }
+  return db;
+}
+
+export async function connectDB() {
+  await getClient().connect();
+  return getDB();
+}
+
+collections.users = getDB().collection('users');
+collections.contests = getDB().collection('contests');
+collections.payments = getDB().collection('payments');
+collections.participates = getDB().collection('participates');
+
+export async function closeDB() {
+  if (client) {
+    try {
+      await client.close();
+      console.log('MongoDB connection closed cleanly.');
+    } catch (err) {
+      console.error('Error closing MongoDB connection:', err);
+    } finally {
+      client = null;
+      db = null;
+    }
+  }
+}

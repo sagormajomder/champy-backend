@@ -6,11 +6,11 @@ import {
   getUserRole,
   registerUser,
   updateUser,
-} from '../controllers/userController.js';
+} from '../controllers/user.controller.js';
 import {
   verifyAdmin,
   verifyFireBaseToken,
-} from '../middleware/authMiddleware.js';
+} from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ router.patch(
   '/users/:id/role',
   verifyFireBaseToken,
   verifyAdmin,
-  changeUserRole
+  changeUserRole,
 );
 router.patch('/users/:id', verifyFireBaseToken, updateUser);
 router.post('/users', registerUser);

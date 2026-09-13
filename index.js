@@ -1,25 +1,26 @@
 import cors from 'cors';
 import express from 'express';
-import { connectDB } from './config/db.js';
-import contestRoutes from './routes/contestRoutes.js';
-import participateRoutes from './routes/participateRoutes.js';
-import paymentRoutes from './routes/paymentRoutes.js';
-import userRoutes from './routes/userRoutes.js';
+import { closeDB } from './config/db.js';
+import {
+  errorHandler,
+  notFoundHandler,
+} from './middleware/error.middleware.js';
+import contestRoutes from './routes/contest.routes.js';
+import participateRoutes from './routes/participate.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ['http://localhost:5173', 'https://champy-sm.web.app'],
+    credentials: true,
+  }),
+);
 app.use(express.json());
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
 
 // Server Root Route
 app.get('/', (req, res) => {
@@ -32,22 +33,35 @@ app.use(contestRoutes);
 app.use(paymentRoutes);
 app.use(participateRoutes);
 
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res
-    .status(500)
-    .json({ error: 'Internal Server Error', message: err.message });
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+// Crash / Unhandled Error Listeners
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  if (!process.env.VERCEL) process.exit(1);
 });
 
-if (!process.env.VERCEL) {
-  connectDB()
-    .then(() => {
-      app.listen(port, () => {
-        console.log(`Server is running at http://localhost:${port}`);
-      });
-    })
-    .catch(console.dir);
-}
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception thrown:', err);
+  if (!process.env.VERCEL) process.exit(1);
+});
 
+// Vercel serverless export
 export default app;
+
+// Local Development only: Bind port and handle terminal graceful shutdown (Ctrl + C)
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+  });
+
+  const handleLocalShutdown = async signal => {
+    console.log(`Received ${signal}. Shutting down local server cleanly...`);
+    await closeDB();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => handleLocalShutdown('SIGINT'));
+  process.on('SIGTERM', () => handleLocalShutdown('SIGTERM'));
+}

@@ -3,11 +3,11 @@ import {
   createCheckoutSession,
   paymentCancelled,
   paymentSuccess,
-} from '../controllers/paymentController.js';
+} from '../controllers/payment.controller.js';
 import {
   verifyFireBaseToken,
   verifyUser,
-} from '../middleware/authMiddleware.js';
+} from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -17,7 +17,7 @@ router.post(
   '/create-checkout-session',
   verifyFireBaseToken,
   verifyUser,
-  createCheckoutSession
+  createCheckoutSession,
 );
 
 export default router;
