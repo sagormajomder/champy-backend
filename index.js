@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import { closeDB } from './config/db.js';
+import { closeDB, connectDB } from './config/db.js';
 import {
   errorHandler,
   notFoundHandler,
@@ -52,6 +52,7 @@ export default app;
 
 // Local Development only: Bind port and handle terminal graceful shutdown (Ctrl + C)
 if (!process.env.VERCEL) {
+  await connectDB();
   app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
   });

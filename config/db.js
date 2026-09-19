@@ -28,8 +28,13 @@ export function getDB(dbName = 'champyDB') {
 }
 
 export async function connectDB() {
-  await getClient().connect();
-  return getDB();
+  try {
+    await getClient().connect();
+    console.log('MongoDB connected successfully.');
+  } catch (error) {
+    console.error('MongoDB connection failed:', error);
+    throw error;
+  }
 }
 
 collections.users = getDB().collection('users');
